@@ -49,8 +49,11 @@ flowchart LR
 | File | Purpose |
 |---|---|
 | [`README.md`](README.md) | This guide |
-| [`scripts/jetracer_jp7_patch.py`](scripts/jetracer_jp7_patch.py) | Patches a fresh clone of the original jetracer repo for JetPack 7 (safe to run more than once) |
-| [`scripts/manual_control_test.py`](scripts/manual_control_test.py) | Steering and throttle tests on PCA9685 channels 0 and 1 |
+| [`scripts/jetracer_jp7_patch.py`](scripts/jetracer_jp7_patch.py) | Patches a fresh clone of the original jetracer repo for JetPack 7 and optionally sets per-car PCA9685 channels (safe to run more than once) |
+| [`scripts/manual_control_test.py`](scripts/manual_control_test.py) | Configurable steering/throttle tests, including the AGX Orin Traxxas diagnostic sequence |
+| [`scripts/wasd_control.py`](scripts/wasd_control.py) | Interactive fail-safe WASD terminal control for the AGX Orin car |
+| [`scripts/wasd_hold_control.py`](scripts/wasd_hold_control.py) | GUI controller with real key-up events and repeated bursts while `W` is held |
+| [`scripts/wasd_continuous_control.py`](scripts/wasd_continuous_control.py) | Current GUI controller and handoff point: verified repeated ESC cycles by default, with experimental steady mode and a dry-run self-test |
 
 ## Contents
 
@@ -88,6 +91,182 @@ flowchart LR
 
 > [!NOTE]
 > The Jetson came already flashed with JetPack 7.2.1. To check yours, run `cat /etc/nv_tegra_release`. It should show `R39 (release), REVISION: 2.1`.
+
+### 1.1 Current AGX Orin + Traxxas VXL-3s car (November 2026)
+
+This checkout was also brought up on a second car whose hardware differs from car #1. The original channel numbers elsewhere in this guide remain the car #1 values; use the values in this section on the AGX Orin car.
+
+| Item | Current AGX Orin car |
+|---|---|
+| **Jetson** | Jetson **AGX Orin Developer Kit** |
+| **JetPack** | 7.2.1 (L4T R39.2.1), Ubuntu 24.04, kernel 6.8 |
+| **Python** | 3.12, virtual environment at `~/jr` |
+| **Servo driver** | PCA9685 at I2C bus 7, address `0x40` |
+| **Steering** | PCA9685 **channel 1** |
+| **ESC** | Traxxas **3355R VXL-3s**, PCA9685 **channel 2** |
+| **Camera** | Not installed; camera/AI setup was intentionally deferred |
+
+#### Software changes made on this Jetson
+
+1. Reused the existing JetPack 7.2.1, CUDA, OpenCV, I2C/GPIO permissions, and system packages already on the machine.
+2. Created `~/jr` with `--system-site-packages` and installed the pinned Blinka/ServoKit stack:
+
+   ```bash
+   python3 -m venv --system-site-packages ~/jr
+   ~/jr/bin/python -m pip install adafruit-blinka==9.2.0 \
+       adafruit-circuitpython-servokit==1.3.24 traitlets
+   ```
+
+3. Cloned the original JetRacer to `~/jetracer`, installed it editable, and applied the JetPack 7 patches.
+4. Extended `jetracer_jp7_patch.py` with `--steering-channel` and `--throttle-channel`, then saved this car's discovered mapping:
+
+   ```bash
+   ~/jr/bin/python ~/JetRacer-JetPack7/scripts/jetracer_jp7_patch.py \
+       ~/jetracer --steering-channel 1 --throttle-channel 2 --steering-gain 0.65
+   ```
+
+5. Updated `manual_control_test.py` to make both channels explicit, validate that they differ, use short configurable throttle tests, and always return steering and throttle to neutral in `finally`.
+6. Reversed this car's steering gain to `+0.65` after physical testing showed that the original `-0.65` made `A` turn right and `D` turn left.
+
+#### How the channel mapping was found
+
+The initial channel assumptions were wrong. Acceleration tests sent to channel 0 did nothing, while an old command labelled as a channel-2 "steering" sweep made the drive motor turn. Testing the remaining channel separately established the final mapping:
+
+| Test | Physical result | Conclusion |
+|---|---|---|
+| Vary channel 0 | No steering or motor response | Not used for these controls |
+| Vary channel 1 while channel 2 stayed neutral | Steering moved | Channel 1 is steering |
+| Vary channel 2 while channel 1 stayed neutral | Drive motor accelerated | Channel 2 is the ESC |
+
+#### Working acceleration diagnostic
+
+The VXL-3s continued blinking green and did not respond to a single `+0.2`, `-0.2`, 1644 us, or 1352 us pulse. It did respond repeatably to the exact alternating waveform accidentally produced by the earlier channel-2 steering test:
+
+| Step | ESC channel 2 pulse | Duration |
+|---:|---:|---:|
+| Start | 1498 us neutral | — |
+| 1 | 1645 us | 1 s |
+| 2 | 1352 us | 1 s |
+| 3 | 1645 us | 1 s |
+| 4 | 1352 us | 1 s |
+| Stop | 1498 us neutral | held |
+
+That waveform is implemented as a named diagnostic instead of misusing the steering test:
+
+```bash
+# Wheels off the ground.
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/manual_control_test.py esc-sequence
+```
+
+Expected output includes:
+
+```text
+start: steering ch1 1498 us, ESC ch2 1498 us
+ESC motor throttle +0.195 -> ch2 1645 us (1 s)
+ESC motor throttle -0.195 -> ch2 1352 us (1 s)
+ESC motor throttle +0.195 -> ch2 1645 us (1 s)
+ESC motor throttle -0.195 -> ch2 1352 us (1 s)
+stopped: steering ch1 1498 us, ESC ch2 1498 us
+```
+
+> [!CAUTION]
+> `esc-sequence` is a verified **bring-up diagnostic**, not normal proportional throttle control. It alternates both sides of neutral. Keep the driven wheels off the ground and do not use it for autonomous driving. The VXL-3s still needs its throttle range calibrated on the now-confirmed **channel 2** before ordinary `car.throttle` driving is considered ready. Earlier calibration attempts were ineffective because they were sent to the incorrectly assumed channel 0.
+
+#### Verified commands on the AGX Orin car
+
+```bash
+# Centre/neutral
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/manual_control_test.py center
+
+# Steering ch1; ESC ch2 remains neutral
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/manual_control_test.py steering --seconds 4 --amount 0.3
+
+# Verified motor diagnostic on ESC ch2; always returns to neutral
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/manual_control_test.py esc-sequence
+```
+
+#### WASD terminal control
+
+`scripts/wasd_control.py` provides single-key terminal control using the verified channel mapping and acceleration waveform:
+
+| Key | Action |
+|---|---|
+| Press `W` | Run one complete verified VXL-3s acceleration burst on channel 2 |
+| Hold `A` / `D` | Steer left/right on channel 1; auto-centres when key repeat stops |
+| `S` | Immediately return the ESC to neutral |
+| Space | ESC neutral and steering centred |
+| `C` | Centre steering |
+| `Q` | Stop, centre, and exit |
+
+Run it in a terminal or SSH session:
+
+```bash
+# Wheels off the ground for initial testing.
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/wasd_control.py
+```
+
+The four-second `W` burst runs independently so `A` or `D` can steer without cancelling acceleration; it returns to neutral automatically when complete. If `A` or `D` key repeat stops for 0.8 seconds, steering is centred. `S`, Space, `SIGINT`, `SIGTERM`, terminal disconnect (`SIGHUP`), exceptions, and normal exit also neutralize the ESC; final cleanup centres steering and neutralizes the ESC.
+
+Each `W` press recreates the `NvidiaRacecar`/ServoKit output and starts the four-step waveform immediately. This matches the standalone `manual_control_test.py esc-sequence` invocation that physically accelerated the car. Reusing a ServoKit instance that had been sitting at neutral left this VXL-3s in its green-blinking lockout, even though the later register values were identical.
+
+> [!CAUTION]
+> `W` currently uses the same alternating diagnostic ESC waveform as `esc-sequence`; it is not normal proportional throttle. Keep the wheels raised until the VXL-3s has been calibrated on channel 2 and ordinary throttle has been validated.
+
+For real press-and-hold control and simultaneous `W+A` / `W+D`, use the desktop GUI controller. It receives actual key-down/key-up events rather than relying on terminal key repeat:
+
+```bash
+# Run from the Jetson desktop. Keep the wheels raised for testing.
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/wasd_hold_control.py
+```
+
+While `W` remains held, the GUI repeats complete known-good bursts back-to-back using the verified one-second step timing. It recreates ServoKit before each cycle, preserves steering through that reinitialization, and neutralizes immediately when `W` is released. `S`, Space, window focus loss, window close, or process signals also stop and centre the car. This creates repeated controlled motion from the only waveform the uncalibrated VXL-3s currently accepts; it is still not equivalent to calibrated proportional throttle.
+
+#### Current WASD handoff (November 6, 2026)
+
+Use [`scripts/wasd_continuous_control.py`](scripts/wasd_continuous_control.py) as the current interface and the starting point for the next session. The working copy was initially tested from `/home/sohom/Downloads/wasd_continuous_control.py`; it is now maintained in this repository, so future work must use the repository path below rather than the Downloads copy.
+
+Current result: **partially working**. Holding `W` now produces some wheel motion using the known diagnostic waveform. Smooth, constant, proportional forward acceleration is **not yet validated**. Do not describe the ESC as calibrated or normal driving as complete.
+
+The changes that produced the partial motion are:
+
+- The controller is self-contained and no longer fails when it cannot import `wasd_control` from another directory.
+- The verified hardware mapping remains steering on PCA9685 channel 1 and the VXL-3s ESC on channel 2.
+- The default mode is `verified`. Holding `W` immediately sends `+0.195`, `-0.195`, `+0.195`, `-0.195`, with each value held for one second.
+- A fresh `NvidiaRacecar`/ServoKit instance is created before **every** four-step cycle. Reusing the existing output object was associated with the ESC remaining in lockout and the wheels not moving.
+- The four-step cycle repeats while `W` remains held. Releasing `W`, pressing `S` or Space, losing window focus, closing the window, or terminating the process returns the ESC to neutral. Emergency-stop paths also centre steering.
+- `A` and `D` can steer while `W` is held. Simultaneous `A+D` centres steering, and releasing either key applies the remaining held direction.
+- `--mode steady` is retained only for future experiments after ESC calibration. It must not be used as the default because a single steady pulse has not moved this ESC reliably. `--mode pulse` is accepted as a compatibility alias for `verified`.
+- No `~/.jetracer_esc.json` clock-correction file existed during this test, so the code used the PCA9685 library's nominal reference clock.
+- `--self-test` checks A/D steering, repeated W cycles, the experimental steady state machine, S stop, and emergency neutral without touching hardware. `--dry-run --demo` exercises the Tk GUI scheduler without sending PWM.
+
+Start the current interface from the Jetson desktop:
+
+```bash
+# Keep the driven wheels off the ground: the verified sequence alternates
+# forward and reverse/brake sides of neutral and is not normal throttle.
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/wasd_continuous_control.py
+```
+
+Click the GUI window and hold `W` continuously for at least five seconds. Expected status messages cycle through `W held: verified step 1/4` to `step 4/4`, then restart at step 1. Do not add `--mode steady` when reproducing the partially working result.
+
+Before a hardware session, verify the controller logic safely:
+
+```bash
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/wasd_continuous_control.py --self-test
+
+# Optional GUI exercise with no hardware output.
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/wasd_continuous_control.py \
+    --dry-run --demo --step-seconds 0.05 --settle-seconds 0.05
+```
+
+If `W` stops producing motion, compare it with the baseline before changing the GUI code:
+
+```bash
+# Wheels raised.
+~/jr/bin/python ~/JetRacer-JetPack7/scripts/manual_control_test.py esc-sequence
+```
+
+If the baseline also fails, record the ESC LED color and whether it is solid or blinking. That points to ESC power, lockout, endpoint calibration, or wiring rather than WASD key handling. The next substantive task is to calibrate the VXL-3s endpoints on confirmed channel 2 and then validate a short steady forward command before replacing the alternating diagnostic waveform.
 
 ## 2. What's different from the original repo
 
@@ -143,6 +322,9 @@ Four female-to-female jumper wires. The Orin Nano's 40-pin header has the same l
 > Leave the PCA9685's **OE** and **V+** header pins and the green **V+ screw terminal** unconnected.
 
 ### 3.2 Servo driver → car
+
+> [!IMPORTANT]
+> The table below is for car #1. On the current **AGX Orin + Traxxas 3355R** car, steering is **channel 1** and the ESC is **channel 2**; see [section 1.1](#11-current-agx-orin--traxxas-vxl-3s-car-november-2026).
 
 | PCA9685 channel | Connect to | Code |
 |:---:|---|---|
@@ -256,6 +438,13 @@ git clone https://github.com/SenSohom/JetRacer-JetPack7 ~/JetRacer-JetPack7
 python3 ~/JetRacer-JetPack7/scripts/jetracer_jp7_patch.py ~/jetracer
 ```
 
+For the AGX Orin car documented in section 1.1, persist its channel mapping while applying the patch:
+
+```bash
+python3 ~/JetRacer-JetPack7/scripts/jetracer_jp7_patch.py ~/jetracer \
+    --steering-channel 1 --throttle-channel 2 --steering-gain 0.65
+```
+
 <details>
 <summary>Expected output on a fresh clone</summary>
 
@@ -286,13 +475,17 @@ python3 -c "from adafruit_platformdetect import Detector; print(Detector().board
 > [!WARNING]
 > **Wheels off the ground, ESC on.**
 
+> [!NOTE]
+> `manual_control_test.py` currently defaults to the AGX Orin car's verified mapping: steering channel 1 and ESC channel 2. Override them with `--steering-channel` and `--esc-channel` for another car.
+
 ```bash
 cd ~/JetRacer-JetPack7/scripts
 ~/jr/bin/python manual_control_test.py center              # centre steering, neutral throttle
 ~/jr/bin/python manual_control_test.py left                # full lock, holds
 ~/jr/bin/python manual_control_test.py right               # full lock, holds
 ~/jr/bin/python manual_control_test.py steering --seconds 15
-~/jr/bin/python manual_control_test.py throttle            # neutral 3 s, then 0.2 and 0.3 for 3 s each, then stop
+~/jr/bin/python manual_control_test.py throttle            # neutral 3 s, throttle 0.2 for 1 s, then stop
+~/jr/bin/python manual_control_test.py esc-sequence        # AGX/Traxxas bring-up diagnostic; see section 1.1
 ```
 
 In Python (`~/jr/bin/python`) or a notebook:
