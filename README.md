@@ -14,6 +14,11 @@
 
 [Hardware](#3-hardware-and-wiring) · [Manual control](#5-manual-control-jetson--servo-driver-channels-0-and-1) · [Camera](#6-camera) · [AI software](#7-ai-software-cuda-tensorrt-pytorch-opencv-jetcam) · [Training](#9-training-example-a-simple-right-turn) · [Troubleshooting](#11-troubleshooting) · [Checklist](#12-per-car-checklist)
 
+Livox MID-360S + Logitech RGB point-cloud work is documented separately in
+[`docs/LIDAR_CAMERA_SETUP.md`](docs/LIDAR_CAMERA_SETUP.md). The exact completed
+work, decisions, machine state, and next action are recorded in
+[`docs/LIDAR_CAMERA_PROGRESS.md`](docs/LIDAR_CAMERA_PROGRESS.md).
+
 </div>
 
 ---
