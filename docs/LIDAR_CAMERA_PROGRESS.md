@@ -2,8 +2,45 @@
 
 Last updated: 2026-11-11
 
-Session state: MID-360S hardware, Ethernet, ROS PointCloud2/IMU, and RViz2
-bring-up are working. Camera intrinsics are the next unfinished milestone.
+Session state: intentionally paused after successful MID-360S hardware,
+Ethernet, ROS PointCloud2/IMU, and RViz2 bring-up. Camera intrinsics are the
+next unfinished milestone.
+
+## Exact resume point
+
+The next task is **Logitech Brio 105 intrinsic calibration**. Do not start
+LiDAR-camera extrinsic calibration, RGB projection, SLAM, or Utonia first.
+
+Before the next session, have these physical inputs ready:
+
+1. A rigid checkerboard that lies flat.
+2. The checkerboard's internal-corner count as `columns x rows` (not its number
+   of printed squares).
+3. The measured edge length of one square in meters.
+4. A final camera resolution, frame rate, and fixed focus setting. Calibration
+   is resolution- and focus-specific, so changing either later invalidates it.
+5. A rigid camera/LiDAR mount. Once extrinsic calibration begins, the sensors
+   must not move relative to one another.
+
+At the time this handoff was finalized:
+
+- The Livox driver was stopped with `Ctrl+C`; no Livox, RViz2, or `usb_cam`
+  process remained and `/livox/lidar` no longer had a publisher.
+- No camera calibration YAML had been generated.
+- The Logitech camera had most recently enumerated as `/dev/video0` and
+  `/dev/video1`, but this must be checked again after reboot.
+
+If resuming without rebooting, avoid starting a duplicate driver:
+
+```bash
+pgrep -af livox_ros_driver2_node
+source /opt/ros/jazzy/setup.bash
+source /home/sohom/ws_livox/install/setup.bash
+ros2 topic info /livox/lidar --verbose
+```
+
+If a publisher already exists and the topic is live, reuse it. After a reboot,
+use the complete restart sequence below.
 
 ## Current verified state
 
@@ -20,6 +57,147 @@ bring-up are working. Camera intrinsics are the next unfinished milestone.
 - RViz2 starts successfully with the Livox profile and subscribes to
   `/livox/lidar` using fixed frame `livox_frame`.
 
+## What persists and what does not
+
+Persists across reboot:
+
+- ROS 2 Jazzy and all installed apt packages.
+- Livox-SDK2 under `/home/sohom/Livox-SDK2` and `/usr/local`.
+- The built Livox ROS workspace under `/home/sohom/ws_livox`.
+- NetworkManager profile `Wired connection 1` and its static address.
+- Both source and installed copies of `MID360s_config.json` currently contain
+  host `192.168.1.50` and LiDAR `192.168.1.166`.
+- This repository's setup and progress documentation.
+
+Does not persist across reboot:
+
+- Sourced ROS shell environments.
+- Running Livox, camera, RViz2, and ROS CLI processes.
+- LiDAR power or Ethernet carrier when the external supply/cable is removed.
+- ROS graph discovery state and transient topic measurements.
+
+Repository caveat:
+
+- `/home/sohom/JetRacer-JetPack7` contains the committed project handoff.
+- `/home/sohom/ws_livox/src/livox_ros_driver2` is a separate upstream Git
+  checkout. Its machine-specific `config/MID360s_config.json` address change is
+  saved on disk but deliberately remains an uncommitted modification in that
+  vendor checkout.
+- The corresponding installed config under
+  `/home/sohom/ws_livox/install/livox_ros_driver2/share/livox_ros_driver2/config/`
+  was updated too. A future workspace rebuild should preserve the correct
+  values because the source copy is also updated.
+
+## Complete restart and verification sequence
+
+Power/connect the MID-360S safely, then run:
+
+```bash
+cd /home/sohom/JetRacer-JetPack7
+source /opt/ros/jazzy/setup.bash
+source /home/sohom/ws_livox/install/setup.bash
+
+ip -brief address show end0
+cat /sys/class/net/end0/carrier
+ping -c 3 192.168.1.166
+
+rg -n 'host_ip|"ip"' \
+  /home/sohom/ws_livox/src/livox_ros_driver2/config/MID360s_config.json
+
+ros2 launch livox_ros_driver2 rviz_MID360s_launch.py
+```
+
+Expected network results are `192.168.1.50/24` on `end0`, `carrier=1`, and
+successful replies from `192.168.1.166`. The two config values must be
+`192.168.1.50` and `192.168.1.166`.
+
+In a second sourced terminal, verify the streams:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/sohom/ws_livox/install/setup.bash
+ros2 topic list -t
+ros2 topic info /livox/lidar --verbose
+ros2 topic hz /livox/lidar
+ros2 topic hz /livox/imu
+```
+
+Expected topics and approximate rates:
+
+```text
+/livox/lidar  sensor_msgs/msg/PointCloud2  10 Hz
+/livox/imu    sensor_msgs/msg/Imu          200 Hz
+```
+
+Press `Ctrl+C` after collecting enough rate samples.
+
+Then enumerate and start the camera:
+
+```bash
+v4l2-ctl --list-devices
+v4l2-ctl --device /dev/video0 --list-formats-ext
+
+ros2 run usb_cam usb_cam_node_exe --ros-args \
+  -p video_device:=/dev/video0 \
+  -p camera_name:=logitech_brio105 \
+  -p image_width:=640 -p image_height:=480 -p framerate:=30.0
+```
+
+Replace `/dev/video0` and the mode if enumeration or the selected final mode
+differs. Verify `/image_raw` and `/camera_info` before calibration.
+
+Once the real checkerboard measurements are known, run the calibrator from a
+second ROS-sourced terminal, replacing every placeholder:
+
+```bash
+ros2 run camera_calibration cameracalibrator \
+  --size <internal-columns>x<internal-rows> \
+  --square <square-edge-meters> \
+  --ros-args -r image:=/image_raw -r camera:=/camera
+```
+
+Capture the board across the full image at varied distances, tilts, and image
+positions. Save the calibration output, copy the final YAML into this project,
+record the exact camera mode/focus used, relaunch `usb_cam` with that
+calibration, and verify rectified images. Do not invent checkerboard values.
+
+## Known issue and recovery
+
+The first driver attempt reported `bind failed` because NetworkManager was
+still trying DHCP and removed a temporary `ip addr` assignment. This was fixed
+by making `Wired connection 1` a persistent manual profile with no gateway and
+`ipv4.never-default=yes`.
+
+If `bind failed` returns, do not start repeated driver copies. Stop duplicates,
+then check:
+
+```bash
+pgrep -af livox_ros_driver2_node
+ip -brief address show end0
+nmcli device status
+nmcli connection show "Wired connection 1"
+sudo ss -lunp | rg 'livox|:(56000|56101|56201|56301|56401|56501)'
+```
+
+Restore/activate the existing profile instead of creating another one:
+
+```bash
+sudo nmcli connection up "Wired connection 1"
+```
+
+`ros2 node list` may warn about duplicate `/livox_driver_node` names even when
+only one OS-level driver process is active. Check `pgrep` and the publisher
+count from `ros2 topic info /livox/lidar --verbose` before deciding that a
+second process exists.
+
+When the verified driver was stopped with `Ctrl+C`, it printed `Livox Lidar SDK
+Deinit completely!` and removed the ROS topics, but the `ros2 run` wrapper then
+reported `Segmentation fault` during final teardown. No process remained. This
+was a shutdown-path issue after successful deinitialization; it did not affect
+the verified live PointCloud2 or IMU streams.
+
+## Safe shutdown
+
 Before a future shutdown:
 
 1. Stop any running ROS nodes with `Ctrl+C`.
@@ -32,21 +210,6 @@ Before a future shutdown:
 
 Do not remove Jetson power until its shutdown activity and power indicator show
 that shutdown is complete.
-
-After boot, power and connect the LiDAR, then run:
-
-```bash
-cd /home/sohom/JetRacer-JetPack7
-source /opt/ros/jazzy/setup.bash
-source /home/sohom/ws_livox/install/setup.bash
-ip -brief address show end0
-ping -c 3 192.168.1.166
-ros2 launch livox_ros_driver2 rviz_MID360s_launch.py
-```
-
-The persistent wired profile should restore `192.168.1.50/24` automatically.
-If USB enumeration changes the webcam away from `/dev/video0`, use the device
-shown by `v4l2-ctl --list-devices` rather than assuming the old path.
 
 ## Project objective
 
