@@ -2,6 +2,9 @@
 
 Last updated: 2026-11-12
 
+Dedicated resume checkpoint:
+[`EXTRINSIC_CALIBRATION_CHECKPOINT.md`](EXTRINSIC_CALIBRATION_CHECKPOINT.md).
+
 Session state: MID-360S bring-up and Logitech camera intrinsic calibration are
 complete. The targetless ROS 2 extrinsic-calibration tool is installed and
 built. The next unfinished milestone is collecting five stationary camera and
@@ -16,7 +19,9 @@ and saved.
 Before the next session:
 
 1. Keep the camera and LiDAR rigidly mounted; do not change their relative pose.
-2. Power/connect the LiDAR; its function/GPS wires are not needed.
+2. Power/connect the LiDAR; its function/GPS wires are not needed. At checkpoint
+   creation it was powered, had Ethernet carrier, and replied to ping, but no
+   Livox ROS process was running.
 3. Aim the complete stationary rig at a scene with textured walls plus clear
    3D structure at several depths. Avoid blank walls and moving people.
 4. Record five 16-second bags, moving the complete rig between bags but keeping

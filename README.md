@@ -17,7 +17,9 @@
 Livox MID-360S + Logitech RGB point-cloud work is documented separately in
 [`docs/LIDAR_CAMERA_SETUP.md`](docs/LIDAR_CAMERA_SETUP.md). The exact completed
 work, decisions, machine state, and next action are recorded in
-[`docs/LIDAR_CAMERA_PROGRESS.md`](docs/LIDAR_CAMERA_PROGRESS.md).
+[`docs/LIDAR_CAMERA_PROGRESS.md`](docs/LIDAR_CAMERA_PROGRESS.md). The exact
+extrinsic-calibration resume point is in
+[`docs/EXTRINSIC_CALIBRATION_CHECKPOINT.md`](docs/EXTRINSIC_CALIBRATION_CHECKPOINT.md).
 
 </div>
 
