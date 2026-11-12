@@ -1,0 +1,35 @@
+diff --git a/cmake/FindGTSAM.cmake b/cmake/FindGTSAM.cmake
+index 0779a92..2105e43 100644
+--- a/cmake/FindGTSAM.cmake
++++ b/cmake/FindGTSAM.cmake
+@@ -5,3 +5,3 @@
+ find_library(GTSAM_LIB NAMES gtsam
+-  HINTS /usr/local/lib /usr/lib
++  HINTS /usr/local/lib /usr/lib /usr/lib/aarch64-linux-gnu
+   DOC "GTSAM libraries")
+@@ -9,3 +9,3 @@
+ find_library(GTSAM_UNSTABLE_LIB NAMES gtsam_unstable
+-  HINTS /usr/local/lib /usr/lib
++  HINTS /usr/local/lib /usr/lib /usr/lib/aarch64-linux-gnu
+   DOC "GTSAM_UNSTABLE libraries")
+@@ -13,3 +13,3 @@
+ find_library(TBB_LIB NAMES tbb
+-  HINTS /usr/local/lib /usr/lib
++  HINTS /usr/local/lib /usr/lib /usr/lib/aarch64-linux-gnu
+   DOC "TBB libraries")
+@@ -17,3 +17,3 @@
+ find_library(TBB_MALLOC_LIB NAMES tbbmalloc
+-  HINTS /usr/local/lib /usr/lib
++  HINTS /usr/local/lib /usr/lib /usr/lib/aarch64-linux-gnu
+   DOC "TBB malloc libraries")
+@@ -21,3 +21,8 @@
+-if(GTSAM_LIB AND GTSAM_UNSTABLE_LIB AND TBB_LIB)
+-  set(GTSAM_LIBRARIES ${GTSAM_LIB} ${GTSAM_UNSTABLE_LIB} ${TBB_LIB} ${TBB_MALLOC_LIB})
++if(GTSAM_LIB)
++  set(GTSAM_LIBRARIES ${GTSAM_LIB})
++  foreach(OPTIONAL_GTSAM_LIB GTSAM_UNSTABLE_LIB TBB_LIB TBB_MALLOC_LIB)
++    if(${OPTIONAL_GTSAM_LIB})
++      list(APPEND GTSAM_LIBRARIES ${${OPTIONAL_GTSAM_LIB}})
++    endif()
++  endforeach()
+ endif()

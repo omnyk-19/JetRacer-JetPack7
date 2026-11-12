@@ -4,6 +4,8 @@ Last updated: 2026-11-12
 
 Dedicated resume checkpoint:
 [`EXTRINSIC_CALIBRATION_CHECKPOINT.md`](EXTRINSIC_CALIBRATION_CHECKPOINT.md).
+Reproducible dependency manifest:
+[`DEPENDENCIES.md`](DEPENDENCIES.md).
 
 Session state: MID-360S bring-up and Logitech camera intrinsic calibration are
 complete. The targetless ROS 2 extrinsic-calibration tool is installed and
@@ -111,7 +113,8 @@ Repository caveat:
 - `/home/sohom/ws_lidar_camera/src/direct_visual_lidar_calibration` has a local
   compatibility change in `cmake/FindGTSAM.cmake`: Ubuntu 24.04 installs GTSAM
   in the ARM64 multiarch library directory and does not ship the optional
-  `gtsam_unstable` library. Preserve this change when updating the checkout.
+  `gtsam_unstable` library. The reproducible copy is tracked at
+  `patches/direct_visual_lidar_calibration-ubuntu24-arm64-gtsam.patch`.
 
 ## Complete restart and verification sequence
 

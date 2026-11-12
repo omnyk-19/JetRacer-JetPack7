@@ -5,6 +5,10 @@ Checkpoint date: 2026-11-12
 This is the exact resume point after completing camera intrinsics and preparing
 the targetless LiDAR-camera extrinsic-calibration workflow.
 
+The complete package list, tested versions, source revisions, build commands,
+and required ARM64 GTSAM patch are recorded in
+[`DEPENDENCIES.md`](DEPENDENCIES.md).
+
 ## Completed and committed
 
 - Commit `b7e9193` stores the accepted Logitech camera intrinsic calibration.
@@ -49,11 +53,12 @@ viewer
 Installed dependencies include GTSAM 4.2, Ceres 2.2, PCL ROS, OpenMP, GLM,
 GLFW, and Iridescence under `/usr/local`.
 
-The upstream checkout has one required uncommitted compatibility change in
+The upstream checkout has one required compatibility change in
 `cmake/FindGTSAM.cmake`. Ubuntu 24.04 ARM64 installs GTSAM in
 `/usr/lib/aarch64-linux-gnu` and does not provide the optional
-`gtsam_unstable` library. Preserve that patch when updating or rebuilding the
-workspace.
+`gtsam_unstable` library. The exact change is tracked in
+`patches/direct_visual_lidar_calibration-ubuntu24-arm64-gtsam.patch`; apply it
+when reconstructing or updating the vendor workspace.
 
 Rebuild command:
 

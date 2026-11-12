@@ -20,6 +20,8 @@ work, decisions, machine state, and next action are recorded in
 [`docs/LIDAR_CAMERA_PROGRESS.md`](docs/LIDAR_CAMERA_PROGRESS.md). The exact
 extrinsic-calibration resume point is in
 [`docs/EXTRINSIC_CALIBRATION_CHECKPOINT.md`](docs/EXTRINSIC_CALIBRATION_CHECKPOINT.md).
+The complete tested dependency and source-revision manifest is in
+[`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
 
 </div>
 
