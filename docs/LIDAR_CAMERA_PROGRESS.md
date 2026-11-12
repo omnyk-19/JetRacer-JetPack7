@@ -1,32 +1,30 @@
 # LiDAR-camera project progress log
 
-Last updated: 2026-11-11
+Last updated: 2026-11-12
 
-Session state: intentionally paused after successful MID-360S hardware,
-Ethernet, ROS PointCloud2/IMU, and RViz2 bring-up. Camera intrinsics are the
-next unfinished milestone.
+Session state: MID-360S bring-up and Logitech camera intrinsic calibration are
+complete. The next unfinished milestone is documenting the rigid sensor frame
+layout and performing target-based LiDAR-camera extrinsic calibration.
 
 ## Exact resume point
 
-The next task is **Logitech Brio 105 intrinsic calibration**. Do not start
-LiDAR-camera extrinsic calibration, RGB projection, SLAM, or Utonia first.
+The next task is **LiDAR-camera extrinsic calibration**. Do not start RGB
+projection, SLAM, or Utonia before the rigid transform is measured and saved.
 
-Before the next session, have these physical inputs ready:
+Before the next session:
 
-1. A rigid checkerboard that lies flat.
-2. The checkerboard's internal-corner count as `columns x rows` (not its number
-   of printed squares).
-3. The measured edge length of one square in meters.
-4. A final camera resolution, frame rate, and fixed focus setting. Calibration
-   is resolution- and focus-specific, so changing either later invalidates it.
-5. A rigid camera/LiDAR mount. Once extrinsic calibration begins, the sensors
-   must not move relative to one another.
+1. Keep the camera and LiDAR rigidly mounted; do not change their relative pose.
+2. Measure and document the frame origins, axes, and approximate translation.
+3. Select an extrinsic-calibration target/method visible to both sensors.
+4. Keep the camera at its calibrated 1280 x 720 MJPEG mode.
 
 At the time this handoff was finalized:
 
 - The Livox driver was stopped with `Ctrl+C`; no Livox, RViz2, or `usb_cam`
   process remained and `/livox/lidar` no longer had a publisher.
-- No camera calibration YAML had been generated.
+- Camera intrinsics are installed at
+  `/home/sohom/.ros/camera_info/logitech_brio105.yaml` and copied into this
+  repository at `config/camera/logitech_brio105_1280x720.yaml`.
 - The Logitech camera had most recently enumerated as `/dev/video0` and
   `/dev/video1`, but this must be checked again after reboot.
 
@@ -56,6 +54,13 @@ use the complete restart sequence below.
 - `/livox/imu` publishes `sensor_msgs/msg/Imu` at approximately 200 Hz.
 - RViz2 starts successfully with the Livox profile and subscribes to
   `/livox/lidar` using fixed frame `livox_frame`.
+- The camera publishes 1280 x 720 `rgb8` at approximately 29.7 Hz using MJPEG.
+- Intrinsics were calibrated with a rigid 9 x 7 internal-corner board with
+  0.020 m squares. Independent reprojection RMS was 0.682 pixels.
+- The committed YAML survives a camera-node restart; `/camera_info` reloads
+  nonzero `K` and `D` values.
+- `image_proc` publishes `/image_rect` at 1280 x 720, `rgb8`, approximately
+  29.1 Hz in `camera_optical_frame`.
 
 ## What persists and what does not
 
@@ -67,6 +72,8 @@ Persists across reboot:
 - NetworkManager profile `Wired connection 1` and its static address.
 - Both source and installed copies of `MID360s_config.json` currently contain
   host `192.168.1.50` and LiDAR `192.168.1.166`.
+- Camera calibration YAML under `/home/sohom/.ros/camera_info` and the project
+  copy under `config/camera`.
 - This repository's setup and progress documentation.
 
 Does not persist across reboot:
@@ -140,26 +147,31 @@ v4l2-ctl --device /dev/video0 --list-formats-ext
 ros2 run usb_cam usb_cam_node_exe --ros-args \
   -p video_device:=/dev/video0 \
   -p camera_name:=logitech_brio105 \
-  -p image_width:=640 -p image_height:=480 -p framerate:=30.0
+  -p image_width:=1280 -p image_height:=720 -p framerate:=30.0 \
+  -p pixel_format:=mjpeg2rgb \
+  -p frame_id:=camera_optical_frame
 ```
 
 Replace `/dev/video0` and the mode if enumeration or the selected final mode
 differs. Verify `/image_raw` and `/camera_info` before calibration.
 
-Once the real checkerboard measurements are known, run the calibrator from a
-second ROS-sourced terminal, replacing every placeholder:
+The accepted calibration used this command from a second ROS-sourced terminal:
 
 ```bash
 ros2 run camera_calibration cameracalibrator \
-  --size <internal-columns>x<internal-rows> \
-  --square <square-edge-meters> \
-  --ros-args -r image:=/image_raw -r camera:=/camera
+  --size 9x7 --square 0.020 \
+  --camera_name logitech_brio105 \
+  --max-chessboard-speed 0.5 \
+  --ros-args \
+  -r image:=/image_raw \
+  -r camera/set_camera_info:=/usb_cam/set_camera_info
 ```
 
-Capture the board across the full image at varied distances, tilts, and image
-positions. Save the calibration output, copy the final YAML into this project,
-record the exact camera mode/focus used, relaunch `usb_cam` with that
-calibration, and verify rectified images. Do not invent checkerboard values.
+The motion filter and a rigidly backed target were necessary. An earlier
+flexible-paper run produced 2.09-pixel RMS and was rejected. For the accepted
+run, exposure was temporarily locked to 10 ms and dynamic frame rate disabled
+to avoid motion blur. The Brio exposes no focus control and behaves as a
+fixed-focus camera.
 
 ## Known issue and recovery
 
@@ -195,6 +207,12 @@ Deinit completely!` and removed the ROS topics, but the `ros2 run` wrapper then
 reported `Segmentation fault` during final teardown. No process remained. This
 was a shutdown-path issue after successful deinitialization; it did not affect
 the verified live PointCloud2 or IMU streams.
+
+During the 2026-11-12 rectification check, `image_proc` stopped publishing on
+`Ctrl+C` but its `rectify_node` process lingered while the system crash reporter
+captured a shutdown fault. It was terminated explicitly. This happened after
+the 1280 x 720 `/image_rect` stream had already been verified at approximately
+29.1 Hz and did not affect the saved calibration.
 
 ## Safe shutdown
 

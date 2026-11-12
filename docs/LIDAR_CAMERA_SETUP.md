@@ -147,15 +147,17 @@ type is `sensor_msgs/msg/PointCloud2`. In RViz2 set Fixed Frame to the cloud's
 
 ### 5. Start and verify the Logitech camera
 
-The detected webcam is a Logitech Brio 105 at `/dev/video0`. Start at a modest
-calibration-friendly mode:
+The detected webcam is a Logitech Brio 105 at `/dev/video0`. The calibrated
+operating mode is 1280 x 720 MJPEG at 30 FPS:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 ros2 run usb_cam usb_cam_node_exe --ros-args \
   -p video_device:=/dev/video0 \
   -p camera_name:=logitech_brio105 \
-  -p image_width:=640 -p image_height:=480 -p framerate:=30.0
+  -p image_width:=1280 -p image_height:=720 -p framerate:=30.0 \
+  -p pixel_format:=mjpeg2rgb \
+  -p frame_id:=camera_optical_frame
 ```
 
 Verify from another terminal:
@@ -177,21 +179,24 @@ but confirm that `usb_cam` is configured for a supported pixel format.
 
 ### 6. Calibrate camera intrinsics
 
-Print a rigid checkerboard and measure the square size precisely. The command
-below is only an example for a board with 8 x 6 **internal corners** and
-25 mm squares; replace all three values with the actual board:
+The accepted calibration used a rigid checkerboard with 9 x 7 **internal
+corners** (10 x 8 printed squares) and 20 mm squares:
 
 ```bash
 ros2 run camera_calibration cameracalibrator \
-  --size 8x6 --square 0.025 \
+  --size 9x7 --square 0.020 \
+  --camera_name logitech_brio105 \
+  --max-chessboard-speed 0.5 \
   --ros-args \
   -r image:=/image_raw \
-  -r camera:=/camera
+  -r camera/set_camera_info:=/usb_cam/set_camera_info
 ```
 
-Capture the board across the whole image, at varied distance and orientation.
-Save/commit the resulting YAML and launch `usb_cam` with its calibration URL.
-Calibrate at the exact resolution and focus settings used for fusion.
+The accepted result has 0.682-pixel reprojection RMS. The installed file is
+`~/.ros/camera_info/logitech_brio105.yaml`; the project copy is
+`config/camera/logitech_brio105_1280x720.yaml`. It was verified after a
+camera-node restart and through `/image_rect` from `image_proc`. This
+calibration is specific to 1280 x 720 and the camera's fixed focus.
 
 ### 7. Establish TF frames and calibrate LiDAR-camera extrinsics
 
@@ -259,7 +264,7 @@ debug calibration and projection without repeatedly operating hardware.
 - [x] MID-360S powered, Ethernet link active, and correct device IP known
 - [x] Jetson wired profile set to the same `/24` subnet with no gateway
 - [x] LiDAR PointCloud2 and IMU topics verified in ROS and RViz2
-- [ ] Camera intrinsic YAML generated at the final operating resolution
+- [x] Camera intrinsic YAML generated and rectification verified at 1280 x 720
 - [ ] Rigid camera/LiDAR bracket and coordinate-frame convention documented
 - [ ] LiDAR-camera extrinsic transform calibrated and stored
 - [ ] Sensor timestamp offset measured; synchronization strategy selected

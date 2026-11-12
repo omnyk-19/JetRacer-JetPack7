@@ -1,0 +1,28 @@
+image_width: 1280
+image_height: 720
+camera_name: logitech_brio105
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1310.236776146347, 0, 656.84476661320116, 0, 1317.2076621907318, 397.117542662029, 0, 0, 1]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.16383591640627204, -0.56251841374527456, 0.0093692240275194353, -0.00027586361019657973, 0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1319.845947265625, 0, 656.9930666365035, 0, 0, 1330.32177734375, 400.18607943331881, 0, 0, 0, 1, 0]
+binning_x: 0
+binning_y: 0
+roi:
+  x_offset: 0
+  y_offset: 0
+  height: 0
+  width: 0
+  do_rectify: false
