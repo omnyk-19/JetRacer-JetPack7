@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eo pipefail
 
 if [[ $# -lt 1 || $# -gt 3 ]]; then
   echo "Usage: $0 SCENE_NAME [DURATION_SECONDS] [OUTPUT_DIRECTORY]" >&2
@@ -24,15 +24,40 @@ fi
 source /opt/ros/jazzy/setup.bash
 source /home/sohom/ws_livox/install/setup.bash
 
-required_topics=(
-  /livox/lidar
-  /image_raw/compressed
-  /camera_info
+# ROS 2's generated setup scripts may read optional tracing variables before
+# defining them, so enable undefined-variable checking only after sourcing.
+set -u
+
+declare -A required_topics=(
+  [/livox/lidar]=sensor_msgs/msg/PointCloud2
+  [/image_raw/compressed]=sensor_msgs/msg/CompressedImage
+  [/camera_info]=sensor_msgs/msg/CameraInfo
 )
 
-for topic in "${required_topics[@]}"; do
-  if ! ros2 topic info "$topic" >/dev/null 2>&1; then
+for topic in "${!required_topics[@]}"; do
+  topic_info=
+  actual_type=
+  for ((attempt = 1; attempt <= 5; attempt++)); do
+    if topic_info=$(ros2 topic info "$topic" 2>/dev/null) &&
+      actual_type=$(ros2 topic type "$topic" 2>/dev/null); then
+      break
+    fi
+    sleep 1
+  done
+
+  if [[ -z $topic_info || -z $actual_type ]]; then
     echo "Required topic is unavailable: $topic" >&2
+    exit 1
+  fi
+
+  publisher_count=$(awk '/^Publisher count:/ { print $3 }' <<<"$topic_info")
+  if [[ ! $publisher_count =~ ^[1-9][0-9]*$ ]]; then
+    echo "Required topic has no publisher: $topic" >&2
+    exit 1
+  fi
+
+  if [[ $actual_type != "${required_topics[$topic]}" ]]; then
+    echo "Wrong type for $topic: expected ${required_topics[$topic]}, got $actual_type" >&2
     exit 1
   fi
 done
@@ -40,15 +65,18 @@ done
 mkdir -p "$output_directory"
 timestamp=$(date +%Y%m%d-%H%M%S)
 bag_path="$output_directory/${scene_name}_${timestamp}"
+timeout_seconds=$((duration_seconds + 2))
 
-echo "Keep the complete camera/LiDAR rig stationary for ${duration_seconds}s."
+echo "Keep the complete camera/LiDAR rig stationary until recording stops."
+echo "Capturing at least ${duration_seconds}s of data (${timeout_seconds}s including startup)."
 echo "Recording to: $bag_path"
 
 set +e
-timeout --signal=INT --kill-after=5s "${duration_seconds}s" \
+timeout --signal=INT --kill-after=30s "${timeout_seconds}s" \
   ros2 bag record \
   --output "$bag_path" \
   --storage sqlite3 \
+  --disable-keyboard-controls \
   --topics /livox/lidar /image_raw/compressed /camera_info
 record_status=$?
 set -e

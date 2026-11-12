@@ -7,32 +7,81 @@ Dedicated resume checkpoint:
 Reproducible dependency manifest:
 [`DEPENDENCIES.md`](DEPENDENCIES.md).
 
-Session state: MID-360S bring-up and Logitech camera intrinsic calibration are
-complete. The targetless ROS 2 extrinsic-calibration tool is installed and
-built. The next unfinished milestone is collecting five stationary camera and
-LiDAR bags from different views of a structured, textured environment.
+Session state: MID-360S bring-up, Logitech camera intrinsic calibration, and
+the targetless calibration toolchain are complete. Two five-scene datasets
+(original and `retake_20261112`) were recorded and calibrated, but neither
+produced an acceptable extrinsic result; the scenes are judged unsuitable. The
+manual picker is now configured and confirmed usable.
 
 ## Exact resume point
 
-The next task is **extrinsic-calibration data collection**. Do not start RGB
-projection, SLAM, or Utonia before the rigid transform is estimated, inspected,
-and saved.
+The next task is **recording a third five-scene dataset** into
+`/home/sohom/lidar_camera_calibration/retake3/bags`, then preprocessing,
+manual picking, and local refinement. Exact commands and scene guidance are in
+[`EXTRINSIC_CALIBRATION_CHECKPOINT.md`](EXTRINSIC_CALIBRATION_CHECKPOINT.md).
+Do not start RGB projection, SLAM, or Utonia before the rigid transform is
+estimated, inspected, and saved.
 
 Before the next session:
 
-1. Keep the camera and LiDAR rigidly mounted; do not change their relative pose.
-2. Power/connect the LiDAR; its function/GPS wires are not needed. At checkpoint
-   creation it was powered, had Ethernet carrier, and replied to ping, but no
-   Livox ROS process was running.
-3. Aim the complete stationary rig at a scene with textured walls plus clear
-   3D structure at several depths. Avoid blank walls and moving people.
-4. Record five 16-second bags, moving the complete rig between bags but keeping
-   it motionless during each recording.
+1. Keep the camera and LiDAR rigidly mounted until calibration is validated.
+2. Use the manual picker with only the hide-sphere patch
+   (`patches/direct_visual_lidar_calibration-manual-hide-sphere.patch`) and
+   the GTSAM patch. Do not apply the viewer-controls patch; it lagged and
+   froze the desktop.
+3. Earlier candidates are preserved for reference in the retake
+   `preprocessed` directory; see the checkpoint for which were rejected.
 
 At the time this handoff was finalized:
 
-- The Livox driver was stopped with `Ctrl+C`; no Livox, RViz2, or `usb_cam`
-  process remained and `/livox/lidar` no longer had a publisher.
+- The Livox and camera publishers were stopped after data collection; no
+  sensor, recorder, or calibration process remains running.
+- Retake `scene01` at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene01_20261112-142058`
+  contains 16.97 seconds, 170 PointCloud2 messages, 508 compressed images, and
+  508 camera-info messages.
+- Retake `scene02` at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene02_20261112-142748`
+  contains 16.93 seconds, 170 PointCloud2 messages, 508 compressed images, and
+  508 camera-info messages.
+- Retake `scene03` at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene03_20261112-143031`
+  contains 16.94 seconds, 170 PointCloud2 messages, 508 compressed images, and
+  508 camera-info messages.
+- Retake `scene04` at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene04_20261112-143711`
+  contains 16.98 seconds, 170 PointCloud2 messages, 508 compressed images, and
+  509 camera-info messages.
+- Retake `scene05` at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene05_20261112-144408`
+  contains 16.96 seconds, 170 PointCloud2 messages, 509 compressed images, and
+  509 camera-info messages.
+- The five retake bags total 930 MiB. Retake preprocessing completed
+  successfully and wrote 204 MiB under
+  `/home/sohom/lidar_camera_calibration/retake_20261112/preprocessed`.
+- The accepted bag
+  `/home/sohom/lidar_camera_calibration/bags/scene01_20261112-134700` contains
+  21.52 seconds, 216 PointCloud2 messages, 645 compressed images, and 645
+  camera-info messages.
+- The accepted bag
+  `/home/sohom/lidar_camera_calibration/bags/scene02_20261112-135205` contains
+  16.96 seconds, 170 PointCloud2 messages, 509 compressed images, and 509
+  camera-info messages.
+- The accepted bag
+  `/home/sohom/lidar_camera_calibration/bags/scene03_20261112-135447` contains
+  16.96 seconds, 170 PointCloud2 messages, 509 compressed images, and 509
+  camera-info messages.
+- The accepted bag
+  `/home/sohom/lidar_camera_calibration/bags/scene04_20261112-135714` contains
+  16.97 seconds, 170 PointCloud2 messages, 509 compressed images, and 509
+  camera-info messages.
+- The accepted bag
+  `/home/sohom/lidar_camera_calibration/bags/scene05_20261112-135855` contains
+  16.96 seconds, 170 PointCloud2 messages, 509 compressed images, and 509
+  camera-info messages.
+- The five bags total 1.1 GiB. Preprocessing completed successfully and wrote
+  the 227 MiB output to
+  `/home/sohom/lidar_camera_calibration/preprocessed`.
 - Camera intrinsics are installed at
   `/home/sohom/.ros/camera_info/logitech_brio105.yaml` and copied into this
   repository at `config/camera/logitech_brio105_1280x720.yaml`.
@@ -132,8 +181,12 @@ ping -c 3 192.168.1.166
 rg -n 'host_ip|"ip"' \
   /home/sohom/ws_livox/src/livox_ros_driver2/config/MID360s_config.json
 
-ros2 launch livox_ros_driver2 rviz_MID360s_launch.py
+scripts/start_livox_pointcloud.sh
 ```
+
+This launcher publishes `sensor_msgs/msg/PointCloud2` without starting RViz.
+The vendor `msg_MID360s_launch.py` launcher publishes an incompatible
+Livox-specific `CustomMsg` and must not be used for calibration bags.
 
 Expected network results are `192.168.1.50/24` on `end0`, `carrier=1`, and
 successful replies from `192.168.1.166`. The two config values must be

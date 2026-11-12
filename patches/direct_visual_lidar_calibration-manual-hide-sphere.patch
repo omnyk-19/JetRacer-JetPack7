@@ -1,0 +1,13 @@
+diff --git a/src/initial_guess_manual.cpp b/src/initial_guess_manual.cpp
+index b11249f..f9c9743 100644
+--- a/src/initial_guess_manual.cpp
++++ b/src/initial_guess_manual.cpp
+@@ -101,7 +101,7 @@ public:
+     std::cout << "image_size:" << image_size.width << "x" << image_size.height << std::endl;
+     std::cout << "camera_fov:" << estimate_camera_fov(proj, {image_size.width, image_size.height}) * 180.0 / M_PI << "[deg]" << std::endl;
+ 
+-    vis.reset(new VisualLiDARVisualizer(proj, dataset, true, true));
++    vis.reset(new VisualLiDARVisualizer(proj, dataset, false, true));
+     vis->set_blend_weight(0.1f);
+ 
+     picking.reset(new PickingPoseEstimation(proj));

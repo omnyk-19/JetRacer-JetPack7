@@ -1,0 +1,68 @@
+diff --git a/src/initial_guess_manual.cpp b/src/initial_guess_manual.cpp
+index b11249f..cd5f29d 100644
+--- a/src/initial_guess_manual.cpp
++++ b/src/initial_guess_manual.cpp
+@@ -107,6 +107,13 @@ public:
+     picking.reset(new PickingPoseEstimation(proj));
+ 
+     auto viewer = guik::LightViewer::instance();
++    // The generic visualizer defaults to an unrestricted arcball camera at an
++    // 80 m distance.  That is awkward for manual point picking in room-scale
++    // data because the scene can roll and initially appears very small.  Keep
++    // Z upright and start close enough to inspect the calibration scenes.
++    viewer->use_orbit_camera_control(15.0, M_PI_4, -M_PI / 6.0);
++    viewer->lookat(Eigen::Vector3f(0.0f, 0.0f, 1.0f));
++    viewer->set_point_shape(2.0f, false, true);
+     viewer->invoke([] {
+       ImGui::SetNextWindowPos({55, 300}, ImGuiCond_Once);
+       ImGui::Begin("texts");
+@@ -151,6 +158,42 @@ public:
+ 
+       ImGui::Begin("control", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+ 
++      const auto set_orbit_view = [&](const double theta, const double phi) {
++        viewer->use_orbit_camera_control(15.0, theta, phi);
++        viewer->lookat(Eigen::Vector3f(0.0f, 0.0f, 1.0f));
++      };
++
++      ImGui::Text("LiDAR view (Z stays up)");
++      if (ImGui::Button("Perspective / Reset")) {
++        set_orbit_view(M_PI_4, -M_PI / 6.0);
++      }
++      ImGui::SameLine();
++      if (ImGui::Button("Front")) {
++        set_orbit_view(0.0, 0.0);
++      }
++      ImGui::SameLine();
++      if (ImGui::Button("Rear")) {
++        set_orbit_view(M_PI, 0.0);
++      }
++
++      if (ImGui::Button("Left")) {
++        set_orbit_view(M_PI_2, 0.0);
++      }
++      ImGui::SameLine();
++      if (ImGui::Button("Right")) {
++        set_orbit_view(-M_PI_2, 0.0);
++      }
++      ImGui::SameLine();
++      if (ImGui::Button("Top")) {
++        viewer->use_topdown_camera_control(15.0, 0.0);
++        viewer->lookat(Eigen::Vector3f(0.0f, 0.0f, 1.0f));
++      }
++
++      ImGui::TextDisabled("Navigate: left-drag orbit, middle-drag pan, wheel zoom");
++      ImGui::TextDisabled("Pick: right-click a LiDAR point and its image match");
++
++      ImGui::Separator();
++
+       ImGui::Text("Rotate camera image");
+       if (ImGui::Button("0 deg")) {
+         camera_image_rotate_code = -1;
+@@ -331,4 +374,4 @@ int main(int argc, char** argv) {
+   init_guess.spin();
+ 
+   return 0;
+-}
+\ No newline at end of file
++}

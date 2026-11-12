@@ -2,14 +2,17 @@
 
 Checkpoint date: 2026-11-12
 
-This is the exact resume point after completing camera intrinsics and preparing
-the targetless LiDAR-camera extrinsic-calibration workflow.
+This is the exact resume point after completing camera intrinsics, collecting
+all five targetless LiDAR-camera calibration scenes, and preprocessing them.
+A separate five-scene retake was also recorded and calibrated, but both
+datasets are judged unsuitable. The next step is recording a third five-scene
+dataset (`retake3`) and calibrating it with the accepted manual picker.
 
 The complete package list, tested versions, source revisions, build commands,
 and required ARM64 GTSAM patch are recorded in
 [`DEPENDENCIES.md`](DEPENDENCIES.md).
 
-## Completed and committed
+## Completed
 
 - Commit `b7e9193` stores the accepted Logitech camera intrinsic calibration.
 - Commit `4fb559d` adds the extrinsic-calibration workflow and repeatable bag
@@ -22,6 +25,54 @@ and required ARM64 GTSAM patch are recorded in
 - Repository calibration YAML:
   `config/camera/logitech_brio105_1280x720.yaml`.
 - Calibration persistence and 1280 x 720 `/image_rect` output were verified.
+- The accepted first extrinsic-calibration bag is
+  `/home/sohom/lidar_camera_calibration/bags/scene01_20261112-134700`.
+- `scene01` contains 21.52 seconds of data: 216 PointCloud2 messages, 645
+  compressed images, and 645 camera-info messages.
+- The accepted second bag is
+  `/home/sohom/lidar_camera_calibration/bags/scene02_20261112-135205`.
+- `scene02` contains 16.96 seconds of data: 170 PointCloud2 messages, 509
+  compressed images, and 509 camera-info messages.
+- The accepted third bag is
+  `/home/sohom/lidar_camera_calibration/bags/scene03_20261112-135447`.
+- `scene03` contains 16.96 seconds of data: 170 PointCloud2 messages, 509
+  compressed images, and 509 camera-info messages.
+- The accepted fourth bag is
+  `/home/sohom/lidar_camera_calibration/bags/scene04_20261112-135714`.
+- `scene04` contains 16.97 seconds of data: 170 PointCloud2 messages, 509
+  compressed images, and 509 camera-info messages.
+- The accepted fifth bag is
+  `/home/sohom/lidar_camera_calibration/bags/scene05_20261112-135855`.
+- `scene05` contains 16.96 seconds of data: 170 PointCloud2 messages, 509
+  compressed images, and 509 camera-info messages.
+- The complete five-bag dataset is 1.1 GiB and has been preprocessed into
+  `/home/sohom/lidar_camera_calibration/preprocessed`.
+- Preprocessing generated five 1280 x 720 camera images, five dense binary PLY
+  clouds, five 1920 x 960 LiDAR-intensity images, five LiDAR-index images, and
+  `calib.json`. The output is 227 MiB.
+- Retake `scene01` is stored at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene01_20261112-142058`.
+  It contains 16.97 seconds, 170 PointCloud2 messages, 508 compressed images,
+  and 508 camera-info messages.
+- Retake `scene02` is stored at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene02_20261112-142748`.
+  It contains 16.93 seconds, 170 PointCloud2 messages, 508 compressed images,
+  and 508 camera-info messages.
+- Retake `scene03` is stored at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene03_20261112-143031`.
+  It contains 16.94 seconds, 170 PointCloud2 messages, 508 compressed images,
+  and 508 camera-info messages.
+- Retake `scene04` is stored at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene04_20261112-143711`.
+  It contains 16.98 seconds, 170 PointCloud2 messages, 508 compressed images,
+  and 509 camera-info messages.
+- Retake `scene05` is stored at
+  `/home/sohom/lidar_camera_calibration/retake_20261112/bags/scene05_20261112-144408`.
+  It contains 16.96 seconds, 170 PointCloud2 messages, 509 compressed images,
+  and 509 camera-info messages.
+- The five retake bags total 930 MiB. Their validated 204 MiB preprocessed
+  output is under
+  `/home/sohom/lidar_camera_calibration/retake_20261112/preprocessed`.
 
 ## Extrinsic-calibration software state
 
@@ -72,12 +123,13 @@ MAKEFLAGS=-j6 colcon build --symlink-install \
 
 ## Exact live hardware and process state
 
-At checkpoint creation:
+After completing and calibrating the separate retake batch:
 
-- No Livox, camera, RViz2, rectification, or calibration ROS process is
-  running.
-- No extrinsic-calibration bag has been recorded, and
-  `/home/sohom/lidar_camera_calibration` does not exist yet.
+- The Livox and camera publishers are stopped; no sensor, RViz2,
+  rectification, or recorder process is running. The result viewer may be
+  reopened without powering the sensors.
+- All five retake bags have been recorded, audited, and preprocessed. The
+  original five bags and their preprocessed output remain unchanged.
 - `end0` has the persistent address `192.168.1.50/24`.
 - Ethernet carrier is active and the powered MID-360S replies at
   `192.168.1.166`.
@@ -88,37 +140,90 @@ At checkpoint creation:
 
 If leaving the hardware unattended, switch off the LiDAR external power supply.
 
-## Exact next action
+## Previous results (retake_20261112, not accepted)
 
-Collect the first of five stationary calibration bags. Use a well-lit static
-scene with textured surfaces, strong 3D edges/corners, and objects at several
-depths. Shelves and room corners are useful; a blank wall is not. Keep people
-and moving objects out of view.
+The retake dataset is judged **not suitable** and will be replaced by a third
+five-scene capture. Its results are preserved only for reference, beside
+`/home/sohom/lidar_camera_calibration/retake_20261112/preprocessed/calib.json`:
 
-The camera and LiDAR must remain rigid relative to each other. Move the complete
-rig between bags, then keep it completely still during each recording.
+- `calib.before_measured_seed.json`: untouched preprocessing output.
+- `calib.rejected-bfgs-unconstrained.json`: rejected; translation drifted to
+  -0.157 m on the forward axis.
+- `calib.measured-seed-nelder-mead-candidate.json`: measured mount seed
+  `[0.035, 0.000, -0.055, -0.5, 0.5, -0.5, 0.5]` refined to
+  `T_lidar_camera = [0.0359598052, -0.0023327586, -0.0489515270,
+  -0.4976852313, 0.4981840300, -0.5030104972, 0.5011013096]`. Scenes 3 and 4
+  looked reasonable; the overall result was not convincing.
+- `calib.manual-seed-attempt1.json`: first manual-picker save. Not usable: the
+  rotation is exactly the default and only translation moved
+  (`[-0.065, 0.209, 0.029]`), which indicates the gizmo was dragged and
+  **Estimate** was not applied. Do not refine it.
 
-### Terminal 1: start the LiDAR without RViz
+## Accepted manual picker configuration
 
-```bash
-source /opt/ros/jazzy/setup.bash
-source /home/sohom/ws_livox/install/setup.bash
+The manual picker (`initial_guess_manual`) is used in its **upstream form with
+exactly one change**: the 1 m "projection sphere" drawn at the LiDAR origin is
+disabled. That sphere surrounds the orbit center, so zooming in placed the view
+inside it and hid the scan. The change is one constructor argument in
+`src/initial_guess_manual.cpp`:
 
-ip -brief address show end0
-cat /sys/class/net/end0/carrier
-ping -c 3 192.168.1.166
-
-ros2 launch livox_ros_driver2 msg_MID360s_launch.py
+```text
+new VisualLiDARVisualizer(proj, dataset, true, true)   # upstream
+new VisualLiDARVisualizer(proj, dataset, false, true)  # used
 ```
 
-### Terminal 2: start the calibrated camera
+It is tracked in
+`patches/direct_visual_lidar_calibration-manual-hide-sphere.patch` and was
+built and confirmed usable on 2026-11-12. The vendor checkout should contain
+only this patch and the GTSAM patch.
 
-Check enumeration first and replace `/dev/video0` only if it changed:
+Do **not** apply
+`patches/direct_visual_lidar_calibration-manual-viewer-controls.patch`. It
+added orbit presets and larger points but made the viewer lag badly and froze
+the desktop on the Jetson. It is kept only as a record.
+
+Picker usage (upstream controls):
+
+- Left-drag: arcball rotate around the LiDAR origin. Middle-drag: pan.
+  Wheel: zoom. To get close to a wall, pan toward it first, then zoom.
+- Right-click a LiDAR point: 3D half of a pair (`picked_3d` appears in the
+  **texts** panel).
+- Right-click the same feature in the separate `image` window: 2D half
+  (`picked_2d`).
+- Click **Add picked points**; confirm `2D/3D correspondence added`.
+- Do not click or drag the colored gizmo arrows; they move the transform
+  directly.
+- After at least six well-spread pairs, click **Estimate** (the rotation in the
+  control panel must change), inspect, then **Save**.
+
+## Exact next action: record a third five-scene dataset
+
+Record five new stationary scenes into a separate directory so earlier data
+stays untouched:
+
+```text
+/home/sohom/lidar_camera_calibration/retake3/bags
+```
+
+Scene guidance: a well-lit static scene with textured surfaces, strong 3D
+corners (shelves, boxes, door frames, furniture) at 1-5 m, spread across the
+whole camera image. Avoid blank walls, glass, mirrors, and people or moving
+objects. Keep the camera/LiDAR mount unchanged. Move the whole rig between
+scenes and keep it completely still while recording. Corners that are clearly
+visible in both camera and LiDAR make manual picking much easier.
+
+Terminal 1 (LiDAR, PointCloud2, no RViz):
+
+```bash
+cd /home/sohom/JetRacer-JetPack7
+ping -c 3 192.168.1.166
+scripts/start_livox_pointcloud.sh
+```
+
+Terminal 2 (camera; confirm the device with `v4l2-ctl --list-devices`):
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-v4l2-ctl --list-devices
-
 ros2 run usb_cam usb_cam_node_exe --ros-args \
   -p video_device:=/dev/video0 \
   -p camera_name:=logitech_brio105 \
@@ -127,49 +232,34 @@ ros2 run usb_cam usb_cam_node_exe --ros-args \
   -p frame_id:=camera_optical_frame
 ```
 
-### Terminal 3: verify and record scene 1
+Terminal 3 (record each scene, moving the rig between runs):
 
 ```bash
-source /opt/ros/jazzy/setup.bash
-source /home/sohom/ws_livox/install/setup.bash
-
-ros2 topic info /livox/lidar --verbose
-ros2 topic info /image_raw/compressed --verbose
-ros2 topic info /camera_info --verbose
-
 cd /home/sohom/JetRacer-JetPack7
-scripts/record_extrinsic_bag.sh scene01
+scripts/record_extrinsic_bag.sh scene01 16 /home/sohom/lidar_camera_calibration/retake3/bags
+# ... scene02 through scene05 with the same arguments
 ```
 
-The recorder waits 16 seconds, stops automatically, prints `ros2 bag info`, and
-writes under `/home/sohom/lidar_camera_calibration/bags`.
-
-Repeat for `scene02` through `scene05`, changing the complete rig pose between
-bags. Keep the rig stationary throughout every 16-second recording.
-
-## After five bags
-
-Inspect each bag, then preprocess all scenes:
+Then preprocess, pick, and refine:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source /home/sohom/ws_lidar_camera/install/setup.bash
 
 ros2 run direct_visual_lidar_calibration preprocess \
-  /home/sohom/lidar_camera_calibration/bags \
-  /home/sohom/lidar_camera_calibration/preprocessed \
+  /home/sohom/lidar_camera_calibration/retake3/bags \
+  /home/sohom/lidar_camera_calibration/retake3/preprocessed \
   --auto_topic --visualize
-```
 
-Then create a manual initial guess and refine it:
-
-```bash
 ros2 run direct_visual_lidar_calibration initial_guess_manual \
-  /home/sohom/lidar_camera_calibration/preprocessed
-
-ros2 run direct_visual_lidar_calibration calibrate \
-  /home/sohom/lidar_camera_calibration/preprocessed
+  /home/sohom/lidar_camera_calibration/retake3/preprocessed
 ```
+
+After saving the manual seed, copy `calib.json` to a named backup before
+refinement. Run local Nelder-Mead refinement first; do not accept an
+unconstrained BFGS result unless its translation stays consistent with the
+rigid mount (camera a few centimetres from the LiDAR). Inspect all five scenes
+with the `viewer` tool before accepting.
 
 The result `T_lidar_camera` maps camera-frame points into the LiDAR frame. It
 must be inverted before publishing the LiDAR-to-camera transform used for RGB
