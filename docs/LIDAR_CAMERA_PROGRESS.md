@@ -3,20 +3,24 @@
 Last updated: 2026-11-12
 
 Session state: MID-360S bring-up and Logitech camera intrinsic calibration are
-complete. The next unfinished milestone is documenting the rigid sensor frame
-layout and performing target-based LiDAR-camera extrinsic calibration.
+complete. The targetless ROS 2 extrinsic-calibration tool is installed and
+built. The next unfinished milestone is collecting five stationary camera and
+LiDAR bags from different views of a structured, textured environment.
 
 ## Exact resume point
 
-The next task is **LiDAR-camera extrinsic calibration**. Do not start RGB
-projection, SLAM, or Utonia before the rigid transform is measured and saved.
+The next task is **extrinsic-calibration data collection**. Do not start RGB
+projection, SLAM, or Utonia before the rigid transform is estimated, inspected,
+and saved.
 
 Before the next session:
 
 1. Keep the camera and LiDAR rigidly mounted; do not change their relative pose.
-2. Measure and document the frame origins, axes, and approximate translation.
-3. Select an extrinsic-calibration target/method visible to both sensors.
-4. Keep the camera at its calibrated 1280 x 720 MJPEG mode.
+2. Power/connect the LiDAR; its function/GPS wires are not needed.
+3. Aim the complete stationary rig at a scene with textured walls plus clear
+   3D structure at several depths. Avoid blank walls and moving people.
+4. Record five 16-second bags, moving the complete rig between bags but keeping
+   it motionless during each recording.
 
 At the time this handoff was finalized:
 
@@ -27,6 +31,9 @@ At the time this handoff was finalized:
   repository at `config/camera/logitech_brio105_1280x720.yaml`.
 - The Logitech camera had most recently enumerated as `/dev/video0` and
   `/dev/video1`, but this must be checked again after reboot.
+- `direct_visual_lidar_calibration` is built in
+  `/home/sohom/ws_lidar_camera`. Its command-level smoke tests pass on ROS 2
+  Jazzy. `scripts/record_extrinsic_bag.sh` records the three required topics.
 
 If resuming without rebooting, avoid starting a duplicate driver:
 
@@ -69,6 +76,8 @@ Persists across reboot:
 - ROS 2 Jazzy and all installed apt packages.
 - Livox-SDK2 under `/home/sohom/Livox-SDK2` and `/usr/local`.
 - The built Livox ROS workspace under `/home/sohom/ws_livox`.
+- The targetless calibration workspace under `/home/sohom/ws_lidar_camera` and
+  Iridescence installed under `/usr/local`.
 - NetworkManager profile `Wired connection 1` and its static address.
 - Both source and installed copies of `MID360s_config.json` currently contain
   host `192.168.1.50` and LiDAR `192.168.1.166`.
@@ -94,6 +103,10 @@ Repository caveat:
   `/home/sohom/ws_livox/install/livox_ros_driver2/share/livox_ros_driver2/config/`
   was updated too. A future workspace rebuild should preserve the correct
   values because the source copy is also updated.
+- `/home/sohom/ws_lidar_camera/src/direct_visual_lidar_calibration` has a local
+  compatibility change in `cmake/FindGTSAM.cmake`: Ubuntu 24.04 installs GTSAM
+  in the ARM64 multiarch library directory and does not ship the optional
+  `gtsam_unstable` library. Preserve this change when updating the checkout.
 
 ## Complete restart and verification sequence
 

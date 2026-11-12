@@ -211,9 +211,42 @@ base_link
 
 ROS optical axes are normally `z` forward, `x` right, `y` down. A ruler-based
 static transform is acceptable only for rough visualization. RGB projection
-needs target-based LiDAR-camera extrinsic calibration and a saved transform
-containing translation plus rotation. Publish the final transform with a
-URDF/robot-state-publisher or a static transform publisher, then verify it:
+needs LiDAR-camera extrinsic calibration and a saved transform containing
+translation plus rotation.
+
+This rig uses `direct_visual_lidar_calibration`, a targetless ROS 2 workflow
+that supports non-repetitive Livox scans. Its workspace is
+`/home/sohom/ws_lidar_camera`. Collect 5-10 bags in structured, textured static
+scenes. Keep the rig motionless for each 10-15 second Livox accumulation, but
+change the complete rig pose between bags. Record only the required topics:
+
+```bash
+scripts/record_extrinsic_bag.sh scene01
+```
+
+The script records `/livox/lidar`, `/image_raw/compressed`, and `/camera_info`
+under `/home/sohom/lidar_camera_calibration/bags`. After at least five scenes:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /home/sohom/ws_lidar_camera/install/setup.bash
+
+ros2 run direct_visual_lidar_calibration preprocess \
+  /home/sohom/lidar_camera_calibration/bags \
+  /home/sohom/lidar_camera_calibration/preprocessed \
+  --auto_topic --visualize
+
+ros2 run direct_visual_lidar_calibration initial_guess_manual \
+  /home/sohom/lidar_camera_calibration/preprocessed
+
+ros2 run direct_visual_lidar_calibration calibrate \
+  /home/sohom/lidar_camera_calibration/preprocessed
+```
+
+The resulting `T_lidar_camera` maps camera-frame points into the LiDAR frame;
+invert it when publishing a LiDAR-to-camera transform. Publish the final
+transform with a URDF/robot-state-publisher or static transform publisher, then
+verify it:
 
 ```bash
 ros2 run tf2_tools view_frames
